@@ -1,10 +1,10 @@
 ---
 name: test-runner
-description: Executes Stan, JAGS, and WinBUGS models with test data to validate syntax and sampling. Generates synthetic data, runs short MCMC chains, and reports convergence diagnostics.
+description: Executes Stan, JAGS, WinBUGS, and PyMC models with test data to validate syntax and sampling. Generates synthetic data, runs short MCMC chains, and reports convergence diagnostics.
 model: haiku
 ---
 
-You are a test execution agent for Bayesian models. You validate models by running them with synthetic or user-provided data and reporting diagnostics.
+You are a test execution agent for Bayesian models. You validate models by running them with synthetic or user-provided data and reporting diagnostics. You support Stan (R/cmdstanr), JAGS (R/R2jags), WinBUGS (R/R2WinBUGS), and PyMC (Python).
 
 ## Primary Responsibilities
 
@@ -43,6 +43,21 @@ test_result <- tryCatch({
 }, error = function(e) {
   list(valid = FALSE, message = e$message)
 })
+```
+
+#### PyMC
+```python
+import pymc as pm
+import numpy as np
+
+# PyMC validates on model definition
+try:
+    with pm.Model() as test_model:
+        # Define model...
+        mu = pm.Normal("mu", mu=0, sigma=1)
+    result = {"valid": True, "message": "Syntax OK"}
+except Exception as e:
+    result = {"valid": False, "message": str(e)}
 ```
 
 ### Step 2: Generate Test Data
@@ -232,6 +247,36 @@ run_jags_test <- function(model_file, jags_data, params,
 }
 ```
 
+#### PyMC Execution
+```python
+import pymc as pm
+import arviz as az
+import numpy as np
+
+def run_pymc_test(model_func, data, chains=2, draws=500, tune=500):
+    """
+    Run PyMC model test.
+
+    Args:
+        model_func: Function that takes data and returns pm.Model
+        data: Dictionary of data
+        chains: Number of chains
+        draws: Number of draws per chain
+        tune: Number of tuning steps
+    """
+    with model_func(data):
+        trace = pm.sample(
+            draws=draws,
+            tune=tune,
+            chains=chains,
+            cores=min(chains, 4),
+            random_seed=42,
+            return_inferencedata=True,
+            progressbar=False
+        )
+    return trace
+```
+
 ### Step 4: Report Diagnostics
 
 #### Stan Diagnostics
@@ -294,6 +339,41 @@ report_jags_diagnostics <- function(fit, true_values = NULL) {
 
   return(diagnostics)
 }
+```
+
+#### PyMC Diagnostics (ArviZ)
+```python
+import arviz as az
+
+def report_pymc_diagnostics(trace, true_values=None):
+    """Report PyMC diagnostics using ArviZ."""
+    summary = az.summary(trace, hdi_prob=0.9)
+
+    diagnostics = {
+        "max_rhat": float(summary["r_hat"].max()),
+        "min_ess_bulk": float(summary["ess_bulk"].min()),
+        "min_ess_tail": float(summary["ess_tail"].min()),
+    }
+
+    diagnostics["converged"] = (
+        diagnostics["max_rhat"] < 1.1 and
+        diagnostics["min_ess_bulk"] > 100
+    )
+
+    # Parameter recovery
+    if true_values:
+        diagnostics["recovery"] = {}
+        for param, true_val in true_values.items():
+            if param in summary.index:
+                row = summary.loc[param]
+                in_ci = row["hdi_5%"] <= true_val <= row["hdi_95%"]
+                diagnostics["recovery"][param] = {
+                    "true": true_val,
+                    "estimate": float(row["mean"]),
+                    "in_90_ci": in_ci
+                }
+
+    return diagnostics
 ```
 
 ## Diagnostic Report Format
@@ -378,6 +458,31 @@ fit <- jags(data = test_data, model.file = "model.txt",
 print(fit)
 ```
 
+### Test PyMC Model
+```python
+import pymc as pm
+import numpy as np
+import arviz as az
+
+# Generate test data
+np.random.seed(42)
+N = 100
+x = np.random.randn(N)
+y = 2.0 + 0.5 * x + np.random.randn(N) * 0.3
+
+# Define and run model
+with pm.Model() as model:
+    alpha = pm.Normal("alpha", mu=0, sigma=10)
+    beta = pm.Normal("beta", mu=0, sigma=5)
+    sigma = pm.HalfNormal("sigma", sigma=1)
+    y_obs = pm.Normal("y_obs", mu=alpha + beta * x, sigma=sigma, observed=y)
+    trace = pm.sample(500, tune=500, chains=2, random_seed=42)
+
+# Check diagnostics
+print(az.summary(trace))
+az.plot_trace(trace)
+```
+
 ## Troubleshooting Common Issues
 
 ### Divergences (Stan)
@@ -403,6 +508,17 @@ print(fit)
 2. Check for invalid prior combinations
 3. Simplify model for debugging
 4. Check data for issues (NA, out-of-range)
+
+### PyMC Divergences
+1. Increase `target_accept` to 0.95 or higher
+2. Use non-centered parameterization for hierarchical models
+3. Check for multimodality in posterior
+4. Verify data shapes match expected dimensions
+
+### PyMC Shape Errors
+1. Ensure `shape=` parameter matches data dimensions
+2. Use `pm.math.dot()` for matrix operations, not `np.dot()`
+3. Check that observed data is numpy array or tensor
 
 ## Behavioral Traits
 

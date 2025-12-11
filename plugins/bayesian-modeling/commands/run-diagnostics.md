@@ -10,7 +10,7 @@ You are helping the user run and diagnose their Bayesian model.
 ## Step 1: Identify Model and Data
 
 Determine:
-1. **Model language**: Stan / JAGS / WinBUGS
+1. **Model language**: Stan / JAGS / WinBUGS / PyMC
 2. **Data source**:
    - User-provided data
    - Generate synthetic test data
@@ -83,6 +83,36 @@ fit <- jags(
 )
 ```
 
+### PyMC (Python)
+```python
+import pymc as pm
+import arviz as az
+import numpy as np
+
+# Define model
+with pm.Model() as model:
+    # Priors
+    mu = pm.Normal("mu", mu=0, sigma=10)
+    sigma = pm.HalfNormal("sigma", sigma=1)
+
+    # Likelihood
+    y_obs = pm.Normal("y_obs", mu=mu, sigma=sigma, observed=y_data)
+
+    # Sample
+    trace = pm.sample(
+        draws=1000,
+        tune=1000,
+        chains=2,
+        cores=2,
+        random_seed=12345,
+        return_inferencedata=True
+    )
+
+# Diagnostics
+print(az.summary(trace))
+az.plot_trace(trace)
+```
+
 ## Step 4: Report Diagnostics
 
 Generate a diagnostic report:
@@ -91,7 +121,7 @@ Generate a diagnostic report:
 ## Execution Report
 
 ### Model Information
-- **Language**: [Stan/JAGS]
+- **Language**: [Stan/JAGS/PyMC]
 - **File**: model.stan
 - **Test Data**: Synthetic (N=100)
 
@@ -187,6 +217,22 @@ library(R2jags)
 test_data <- list(N = 10, y = rnorm(10))
 jags(data = test_data, model.file = "model.txt",
      parameters.to.save = "mu", n.chains = 1, n.iter = 100)
+```
+
+### Test PyMC Model
+```python
+import pymc as pm
+import numpy as np
+import arviz as az
+
+# Quick test
+y_test = np.random.randn(20)
+with pm.Model() as test_model:
+    mu = pm.Normal("mu", 0, 10)
+    y = pm.Normal("y", mu=mu, sigma=1, observed=y_test)
+    trace = pm.sample(200, tune=200, chains=1, progressbar=False)
+
+print(az.summary(trace))
 ```
 
 ## Convergence Checklist

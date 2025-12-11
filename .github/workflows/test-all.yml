@@ -61,8 +61,11 @@ jobs:
   test-jags:
     uses: ./.github/workflows/test-jags.yml
 
+  test-pymc:
+    uses: ./.github/workflows/test-pymc.yml
+
   summary:
-    needs: [test-stan, test-jags]
+    needs: [test-stan, test-jags, test-pymc]
     runs-on: ubuntu-latest
     if: always()
     steps:
@@ -70,8 +73,11 @@ jobs:
         run: |
           echo "Stan tests: ${{ needs.test-stan.result }}"
           echo "JAGS tests: ${{ needs.test-jags.result }}"
+          echo "PyMC tests: ${{ needs.test-pymc.result }}"
 
-          if [[ "${{ needs.test-stan.result }}" == "failure" ]] || [[ "${{ needs.test-jags.result }}" == "failure" ]]; then
+          if [[ "${{ needs.test-stan.result }}" == "failure" ]] || \
+             [[ "${{ needs.test-jags.result }}" == "failure" ]] || \
+             [[ "${{ needs.test-pymc.result }}" == "failure" ]]; then
             echo "Some tests failed!"
             exit 1
           fi

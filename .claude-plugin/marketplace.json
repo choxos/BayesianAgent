@@ -6,21 +6,22 @@
     "url": "https://github.com/choxos"
   },
   "metadata": {
-    "description": "Claude agent ecosystem for creating and reviewing Bayesian model specification files supporting Stan (cmdstanr), JAGS (R2jags), and WinBUGS (R2WinBUGS)",
-    "version": "1.0.0",
+    "description": "Claude agent ecosystem for creating and reviewing Bayesian model specification files supporting Stan (cmdstanr), PyMC (Python), JAGS (R2jags), and WinBUGS (R2WinBUGS)",
+    "version": "1.1.0",
     "license": "MIT"
   },
   "plugins": [
     {
       "name": "bayesian-modeling",
       "source": "./plugins/bayesian-modeling",
-      "description": "Create, review, and validate Bayesian models in Stan, JAGS, and WinBUGS",
-      "version": "1.0.0",
+      "description": "Create, review, and validate Bayesian models in Stan, PyMC, JAGS, and WinBUGS",
+      "version": "1.1.0",
       "category": "statistics",
       "strict": false,
       "agents": [
         "./agents/model-architect.md",
         "./agents/stan-specialist.md",
+        "./agents/pymc-specialist.md",
         "./agents/bugs-specialist.md",
         "./agents/model-reviewer.md",
         "./agents/test-runner.md"
@@ -33,6 +34,7 @@
       "keywords": [
         "bayesian",
         "stan",
+        "pymc",
         "jags",
         "winbugs",
         "mcmc",
@@ -43,6 +45,8 @@
         "meta-analysis",
         "cmdstanr",
         "r2jags",
+        "arviz",
+        "python",
         "probabilistic-programming"
       ]
     }

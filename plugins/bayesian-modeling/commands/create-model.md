@@ -1,6 +1,6 @@
 ---
 name: create-model
-description: Interactive workflow for creating Bayesian models in Stan, JAGS, or WinBUGS
+description: Interactive workflow for creating Bayesian models in Stan, JAGS, WinBUGS, or PyMC
 ---
 
 # Bayesian Model Creation Workflow
@@ -19,7 +19,8 @@ Ask the user to specify:
    - Meta-analysis model
 
 2. **Target Language**:
-   - Stan with cmdstanr (DEFAULT - recommended)
+   - Stan with cmdstanr (DEFAULT for R - recommended)
+   - PyMC 5 with ArviZ (DEFAULT for Python)
    - JAGS with R2jags
    - WinBUGS with R2WinBUGS (Windows only)
 
@@ -47,6 +48,10 @@ Based on the target language:
   - `stan-fundamentals` for syntax
   - Appropriate model type skill (hierarchical-models, regression-models, etc.)
 
+- **PyMC**: Use @pymc-specialist with skills:
+  - `pymc-fundamentals` for syntax
+  - Appropriate model type skill
+
 - **JAGS/WinBUGS**: Use @bugs-specialist with skills:
   - `bugs-fundamentals` for syntax
   - Appropriate model type skill
@@ -57,10 +62,10 @@ The specialist will provide:
 
 1. **Complete model code** with appropriate comments based on experience level
 
-2. **R integration code**:
+2. **Integration code** (R or Python):
    - Data preparation
    - Model compilation/fitting
-   - Basic diagnostics
+   - Basic diagnostics (posterior/ArviZ)
 
 3. **Generated quantities** for:
    - Posterior predictive checks
@@ -72,8 +77,8 @@ Before presenting to user, verify:
 
 - [ ] Model syntax is correct for target language
 - [ ] All parameters have priors
-- [ ] Parameterization is correct (SD for Stan, precision for BUGS)
-- [ ] R code is complete and runnable
+- [ ] Parameterization is correct (SD for Stan/PyMC, precision for BUGS)
+- [ ] Integration code is complete and runnable (R or Python)
 - [ ] Comments match experience level
 
 ## Example Interaction
@@ -86,7 +91,7 @@ Before presenting to user, verify:
 
 2. **Predictors**: What patient-level and hospital-level variables do you want to include?
 
-3. **Language preference**: Would you like Stan (recommended) or JAGS?
+3. **Language preference**: Would you like Stan (R), PyMC (Python), or JAGS?
 
 4. **Experience level**: How much detail would you like in the comments?
 
@@ -94,7 +99,8 @@ Before presenting to user, verify:
 
 **Critical Reminders**:
 
-- Default to Stan unless user specifies otherwise
-- Always include complete R integration code
-- Warn about parameterization when relevant (SD vs precision)
+- Default to Stan for R users, PyMC for Python users
+- Always include complete integration code (R or Python)
+- Warn about parameterization when relevant (SD for Stan/PyMC, precision for BUGS)
 - Suggest non-centered parameterization for hierarchical models if appropriate
+- For PyMC, remind users to use `pm.math` operations inside models
