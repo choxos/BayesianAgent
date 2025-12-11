@@ -153,6 +153,88 @@ fit$summary()
 fit$cmdstan_diagnose()
 ```
 
+## Bayesian Workflow (Statistical Rethinking)
+
+### 1. Prior Predictive Check
+```r
+# Simulate from priors before fitting
+n_sim <- 1000
+prior_alpha <- rnorm(n_sim, 0, 10)
+prior_sigma <- rexp(n_sim, 1)
+# Plot: do these produce sensible y values?
+```
+
+### 2. Fit Model
+```r
+fit <- mod$sample(data = stan_data, chains = 4, adapt_delta = 0.95)
+```
+
+### 3. Diagnostics
+```r
+fit$summary()              # Rhat, ESS
+fit$cmdstan_diagnose()     # Divergences, treedepth
+library(bayesplot)
+mcmc_rank_hist(fit$draws()) # Ranked traceplots (preferred)
+```
+
+### 4. Posterior Predictive Check
+```r
+y_rep <- fit$draws("y_rep", format = "matrix")
+library(bayesplot)
+ppc_dens_overlay(y, y_rep[1:100, ])
+```
+
+### 5. Model Comparison
+```r
+library(loo)
+loo1 <- loo(fit1$draws("log_lik"))
+loo2 <- loo(fit2$draws("log_lik"))
+loo_compare(loo1, loo2)
+```
+
+## link vs sim Pattern
+
+### link(): Uncertainty in mu (epistemic)
+```r
+# Posterior of expected value
+post <- fit$draws(format = "df")
+mu <- post$alpha + post$beta * x_new  # Matrix of mu samples
+mu_PI <- apply(mu, 2, quantile, c(0.055, 0.945))
+```
+
+### sim(): Prediction interval (epistemic + aleatoric)
+```r
+# Includes observation noise
+y_sim <- rnorm(n_samples, mu, post$sigma)
+y_PI <- apply(y_sim, 2, quantile, c(0.055, 0.945))
+```
+
+## Generated Quantities Template
+
+Always include for diagnostics and model comparison:
+
+```stan
+generated quantities {
+  vector[N] log_lik;  // For LOO/WAIC
+  array[N] real y_rep;  // For posterior predictive checks
+
+  for (n in 1:N) {
+    log_lik[n] = normal_lpdf(y[n] | mu[n], sigma);
+    y_rep[n] = normal_rng(mu[n], sigma);
+  }
+}
+```
+
+## Diagnostic Checklist
+
+- [ ] Rhat < 1.01 for all parameters
+- [ ] ESS_bulk > 400
+- [ ] ESS_tail > 400
+- [ ] Zero divergences
+- [ ] Not hitting max_treedepth
+- [ ] Prior predictive produces sensible values
+- [ ] Posterior predictive matches data pattern
+
 ## Key Differences from BUGS
 
 | Feature | Stan | BUGS/JAGS |

@@ -376,13 +376,119 @@ def report_pymc_diagnostics(trace, true_values=None):
     return diagnostics
 ```
 
+## Advanced Diagnostics (Statistical Rethinking Style)
+
+### Prior Predictive Check (Stan)
+```r
+# Simulate from priors to verify they produce sensible outcomes
+library(cmdstanr)
+
+prior_predictive <- function(model_code, data, n_sims = 1000) {
+  # Extract prior draws (can also use generated quantities with sampling_only)
+  # Or simulate directly in R based on priors
+  n_sim <- n_sims
+  prior_alpha <- rnorm(n_sim, 0, 10)
+  prior_sigma <- rexp(n_sim, 1)
+
+  # Check if priors produce reasonable y predictions
+  y_prior <- matrix(NA, n_sim, data$N)
+  for (i in 1:n_sim) {
+    y_prior[i,] <- rnorm(data$N, prior_alpha[i], prior_sigma[i])
+  }
+
+  list(
+    y_prior = y_prior,
+    summary = list(
+      mean_range = range(rowMeans(y_prior)),
+      sd_range = range(apply(y_prior, 1, sd))
+    )
+  )
+}
+```
+
+### Prior Predictive Check (PyMC)
+```python
+def prior_predictive_check(model):
+    """Run prior predictive check."""
+    with model:
+        prior_pred = pm.sample_prior_predictive(samples=500)
+
+    # Visualize
+    az.plot_ppc(prior_pred, group="prior")
+
+    return prior_pred
+```
+
+### Ranked Traceplots (Preferred over Traditional)
+```r
+# Stan - Use bayesplot for ranked traceplots
+library(bayesplot)
+
+# Ranked histogram - better than traditional traceplot
+mcmc_rank_hist(fit$draws(c("alpha", "beta", "sigma")))
+
+# Ranked overlay - shows mixing across chains
+mcmc_rank_overlay(fit$draws(c("alpha", "beta", "sigma")))
+```
+
+```python
+# PyMC - Use ArviZ for ranked traceplots
+az.plot_rank_hist(trace)  # Preferred over plot_trace for convergence
+az.plot_rank_overlay(trace)
+```
+
+### Posterior Predictive Check
+```r
+# Stan - Extract y_rep from generated quantities
+y_rep <- fit$draws("y_rep", format = "matrix")
+
+library(bayesplot)
+ppc_dens_overlay(y, y_rep[1:100, ])
+ppc_stat(y, y_rep, stat = "mean")
+ppc_stat(y, y_rep, stat = "sd")
+```
+
+```python
+# PyMC
+with model:
+    post_pred = pm.sample_posterior_predictive(trace)
+
+az.plot_ppc(post_pred, data_pairs={"y_obs": "y_obs"}, num_pp_samples=100)
+```
+
+### LOO/WAIC Model Comparison
+```r
+# Stan - requires log_lik in generated quantities
+library(loo)
+
+# Extract log-likelihood
+ll <- fit$draws("log_lik", format = "matrix")
+
+# Compute LOO
+loo_result <- loo(ll)
+print(loo_result)
+
+# Check Pareto k diagnostics
+plot(loo_result, label_points = TRUE)
+# k > 0.7: observation is influential/problematic
+```
+
+```python
+# PyMC
+loo = az.loo(trace)
+print(loo)
+
+# Check Pareto k
+az.plot_khat(loo)  # k > 0.7 is problematic
+```
+
 ## Diagnostic Report Format
 
 ```markdown
 ## Test Execution Report
 
 ### Model Information
-- **Language**: [Stan/JAGS/WinBUGS]
+- **Language**: [Stan/JAGS/WinBUGS/PyMC]
 - **File**: [model file name]
 - **Test Data**: [generated/user-provided]
 

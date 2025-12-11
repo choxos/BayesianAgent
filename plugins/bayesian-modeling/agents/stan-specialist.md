@@ -330,6 +330,188 @@ generated quantities {
 }
 ```
 
+## Bayesian Workflow (Statistical Rethinking)
+
+Follow this workflow for principled Bayesian analysis:
+
+### 1. Prior Predictive Simulation
+```r
+# Validate priors before fitting
+library(cmdstanr)
+
+# Simulate from priors to check implications
+n_sims <- 1000
+prior_alpha <- rnorm(n_sims, 0, 10)
+prior_beta <- rnorm(n_sims, 0, 1)
+prior_sigma <- rexp(n_sims, 1)
+
+# Plot prior predictive distribution
+x_seq <- seq(-2, 2, length.out = 50)
+plot(NULL, xlim = c(-2, 2), ylim = c(-50, 50),
+     xlab = "x", ylab = "y", main = "Prior Predictive")
+for (i in 1:100) {
+  lines(x_seq, prior_alpha[i] + prior_beta[i] * x_seq, col = rgb(0,0,0,0.1))
+}
+```
+
+### 2. Model Fitting
+```r
+fit <- mod$sample(
+  data = stan_data,
+  seed = 123,
+  chains = 4,
+  parallel_chains = 4,
+  iter_warmup = 1000,
+  iter_sampling = 1000,
+  adapt_delta = 0.95  # Increase for divergences
+)
+```
+
+### 3. Convergence Diagnostics
+```r
+# Summary with depth control (precis-style)
+fit$summary()                    # All parameters
+fit$summary(variables = "alpha") # Specific parameter
+
+# Check diagnostics
+fit$cmdstan_diagnose()
+
+# Ranked traceplots (better than traditional)
+library(bayesplot)
+mcmc_rank_hist(fit$draws())  # Vehtari et al. 2019
+```
+
+### 4. Posterior Predictive Checks
+```r
+# Extract y_rep from generated quantities
+y_rep <- fit$draws("y_rep", format = "matrix")
+
+# Visual check
+library(bayesplot)
+ppc_dens_overlay(y, y_rep[1:100, ])
+ppc_stat(y, y_rep, stat = "mean")
+```
+
+### 5. Model Comparison (if multiple models)
+```r
+library(loo)
+
+# Leave-one-out cross-validation
+loo1 <- loo(fit1$draws("log_lik"))
+loo2 <- loo(fit2$draws("log_lik"))
+
+# Compare models
+loo_compare(loo1, loo2)
+
+# Check Pareto k diagnostics
+plot(loo1)  # k > 0.7 indicates problematic observations
+```
+
+## Prior Specification Guidelines
+
+For standardized data (mean-centered, SD-scaled predictors):
+
+```stan
+// Intercept (on outcome scale)
+alpha ~ normal(0, 10);
+
+// Regression coefficients (standardized predictors)
+beta ~ normal(0, 1);        // Weakly informative
+beta ~ normal(0, 0.5);      // Regularizing
+
+// Scale parameters (always positive)
+sigma ~ exponential(1);     // Soft constraint near 1
+sigma ~ half_cauchy(0, 2.5); // Heavy tails for robustness
+
+// Hierarchical SD
+tau ~ half_cauchy(0, 2.5);  // McElreath recommendation
+
+// Correlation matrices
+Omega ~ lkj_corr(2);        // Slightly favors independence
+Omega ~ lkj_corr(1);        // Uniform over correlations
+```
+
+### Prior Predictive Principle
+> "When you have to write out every detail of the model, you actually learn the model." — McElreath
+
+Always simulate from priors to verify they produce sensible outcomes before fitting.
+
+## Posterior Analysis: link vs sim Pattern
+
+### link(): Epistemic Uncertainty (uncertainty in mu)
+```r
+# Compute posterior of linear model at new x values
+post <- fit$draws(format = "df")
+x_new <- seq(-2, 2, length.out = 100)
+
+mu_link <- matrix(NA, nrow = nrow(post), ncol = length(x_new))
+for (i in 1:nrow(post)) {
+  mu_link[i, ] <- post$alpha[i] + post$beta[i] * x_new
+}
+
+# Summarize
+mu_mean <- colMeans(mu_link)
+mu_PI <- apply(mu_link, 2, quantile, probs = c(0.055, 0.945))
+
+# Plot uncertainty in expected value
+plot(x_new, mu_mean, type = "l")
+shade(mu_PI, x_new)  # 89% interval for mu
+```
+
+### sim(): Aleatoric + Epistemic Uncertainty (predictions)
+```r
+# Simulate actual observations including sigma
+y_sim <- matrix(NA, nrow = nrow(post), ncol = length(x_new))
+for (i in 1:nrow(post)) {
+  mu_i <- post$alpha[i] + post$beta[i] * x_new
+  y_sim[i, ] <- rnorm(length(x_new), mu_i, post$sigma[i])
+}
+
+# Prediction interval (wider than mu interval)
+y_PI <- apply(y_sim, 2, quantile, probs = c(0.055, 0.945))
+
+# Plot both intervals
+shade(y_PI, x_new, col = rgb(0,0,0,0.1))   # Prediction interval
+shade(mu_PI, x_new, col = rgb(0,0,1,0.2))  # mu interval
+```
+
+## WAIC/LOO Model Comparison
+
+Always include log_lik in generated quantities for model comparison:
+
+```stan
+generated quantities {
+  vector[N] log_lik;
+  array[N] real y_rep;
+
+  for (n in 1:N) {
+    log_lik[n] = normal_lpdf(y[n] | alpha + X[n] * beta, sigma);
+    y_rep[n] = normal_rng(alpha + X[n] * beta, sigma);
+  }
+}
+```
+
+### R Code for Comparison
+```r
+library(loo)
+
+# Extract log-likelihood
+ll1 <- fit1$draws("log_lik", format = "matrix")
+ll2 <- fit2$draws("log_lik", format = "matrix")
+
+# Compute LOO (preferred over WAIC)
+loo1 <- loo(ll1)
+loo2 <- loo(ll2)
+
+# Compare with SE of difference
+comp <- loo_compare(loo1, loo2)
+print(comp, simplify = FALSE)
+
+# Check for problematic observations
+plot(loo1, label_points = TRUE)
+# Pareto k > 0.7: observation is influential/problematic
+```
+
 ## Convergence Diagnostics
 
 ### Key Metrics
@@ -338,6 +520,14 @@ generated quantities {
 - **ESS_tail > 400**: Effective sample size for tails
 - **No divergences**: Divergent transitions indicate geometry problems
 - **No max treedepth**: Hitting max tree depth indicates slow exploration
+
+### Ranked Traceplots (Recommended)
+```r
+# Better than traditional traceplots (Vehtari et al. 2019)
+library(bayesplot)
+mcmc_rank_hist(fit$draws(c("alpha", "beta", "sigma")))
+mcmc_rank_overlay(fit$draws(c("alpha", "beta", "sigma")))
+```
 
 ### Troubleshooting
 1. **Divergences**: Try non-centered parameterization, increase adapt_delta

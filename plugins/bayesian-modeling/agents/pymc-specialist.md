@@ -282,6 +282,258 @@ with pm.Model() as survival_model:
     trace = pm.sample(1000, tune=1000)
 ```
 
+### Polynomial Regression (from Statistical Rethinking Ch. 4)
+
+```python
+# Standardize predictors
+weight_std = (d.weight - d.weight.mean()) / d.weight.std()
+weight_std2 = weight_std ** 2
+
+with pm.Model() as poly_model:
+    # Priors
+    a = pm.Normal("a", mu=178, sigma=100)
+    b1 = pm.Lognormal("b1", mu=0, sigma=1)  # Positive slope
+    b2 = pm.Normal("b2", mu=0, sigma=1)
+    sigma = pm.Uniform("sigma", lower=0, upper=50)
+
+    # Track mu for plotting
+    mu = pm.Deterministic("mu", a + b1 * weight_std + b2 * weight_std2)
+
+    # Likelihood
+    height = pm.Normal("height", mu=mu, sigma=sigma, observed=d.height.values)
+
+    trace = pm.sample(1000, tune=1000, return_inferencedata=True)
+
+# Plot results
+az.summary(trace, var_names=["~mu"], kind="stats")
+```
+
+### Categorical Predictors with Indexing (from Statistical Rethinking Ch. 8)
+
+```python
+# Create category index
+category_idx = pd.Categorical(d.category).codes
+
+with pm.Model() as categorical_model:
+    n_categories = len(d.category.unique())
+
+    # Varying intercepts and slopes by category
+    a = pm.Normal("a", mu=1, sigma=0.2, shape=n_categories)
+    b = pm.Normal("b", mu=0, sigma=0.3, shape=n_categories)
+    sigma = pm.Exponential("sigma", lam=1)
+
+    # Index into parameters by category
+    mu = a[category_idx] + b[category_idx] * (x - x.mean())
+
+    # Likelihood
+    y_obs = pm.Normal("y_obs", mu=mu, sigma=sigma, observed=y)
+
+    trace = pm.sample(1000, tune=1000)
+```
+
+### Multiple Regression with Masked Confounders (from Statistical Rethinking Ch. 5)
+
+```python
+# Standardize all variables
+age_std = (d.age - d.age.mean()) / d.age.std()
+marriage_std = (d.marriage - d.marriage.mean()) / d.marriage.std()
+divorce_std = (d.divorce - d.divorce.mean()) / d.divorce.std()
+
+with pm.Model() as dag_model:
+    # Priors
+    a = pm.Normal("a", mu=0, sigma=0.2)
+    bA = pm.Normal("bA", mu=0, sigma=0.5)  # Effect of age
+    bM = pm.Normal("bM", mu=0, sigma=0.5)  # Effect of marriage
+    sigma = pm.Exponential("sigma", lam=1)
+
+    # Linear model
+    mu = pm.Deterministic("mu", a + bA * age_std + bM * marriage_std)
+
+    # Likelihood
+    divorce = pm.Normal("divorce", mu=mu, sigma=sigma, observed=divorce_std)
+
+    trace = pm.sample(1000, tune=1000)
+
+# Check which predictor has effect when both included
+az.summary(trace, var_names=["bA", "bM"])
+```
+
+## Bayesian Workflow (Statistical Rethinking Style)
+
+Follow this principled workflow for Bayesian analysis:
+
+### 1. Prior Predictive Simulation
+```python
+import pymc as pm
+import arviz as az
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Configure ArviZ defaults
+az.rcParams["stats.hdi_prob"] = 0.89  # 89% credible intervals
+az.style.use("arviz-darkgrid")
+RANDOM_SEED = 42
+
+with pm.Model() as model:
+    # Define priors
+    alpha = pm.Normal("alpha", mu=0, sigma=10)
+    beta = pm.Normal("beta", mu=0, sigma=1)
+    sigma = pm.HalfNormal("sigma", sigma=1)
+
+    # Prior predictive
+    prior_pred = pm.sample_prior_predictive(samples=500, random_seed=RANDOM_SEED)
+
+# Visualize prior predictive
+az.plot_ppc(prior_pred, group="prior")
+plt.title("Prior Predictive Check")
+```
+
+### 2. Model Fitting
+```python
+with model:
+    trace = pm.sample(
+        draws=1000,
+        tune=1000,
+        chains=4,
+        cores=4,
+        target_accept=0.9,  # Increase for hierarchical models
+        random_seed=RANDOM_SEED,
+        return_inferencedata=True,
+        idata_kwargs={"log_likelihood": True}
+    )
+```
+
+### 3. Convergence Diagnostics
+```python
+# Summary with diagnostics
+summary = az.summary(trace, hdi_prob=0.89)
+print(summary)
+
+# Check convergence
+print(f"Max Rhat: {summary['r_hat'].max():.3f}")
+print(f"Min ESS bulk: {summary['ess_bulk'].min():.0f}")
+
+# Visual diagnostics
+az.plot_trace(trace)
+az.plot_rank_hist(trace)  # Ranked histograms (preferred)
+```
+
+### 4. Posterior Predictive Checks
+```python
+with model:
+    post_pred = pm.sample_posterior_predictive(trace, random_seed=RANDOM_SEED)
+
+# Visual check
+az.plot_ppc(post_pred, data_pairs={"y_obs": "y_obs"}, num_pp_samples=100)
+```
+
+### 5. Model Comparison (if multiple models)
+```python
+# Compute LOO for each model
+loo1 = az.loo(trace1)
+loo2 = az.loo(trace2)
+
+# Compare models
+compare = az.compare({"model1": trace1, "model2": trace2})
+print(compare)
+
+# Check Pareto k diagnostics
+az.plot_khat(loo1)  # k > 0.7 is problematic
+```
+
+## pm.Deterministic for Tracking Quantities
+
+**Critical**: Use `pm.Deterministic` to track calculated quantities for plotting:
+
+```python
+with pm.Model() as model:
+    alpha = pm.Normal("alpha", mu=0, sigma=10)
+    beta = pm.Normal("beta", mu=0, sigma=1, shape=K)
+    sigma = pm.HalfNormal("sigma", sigma=1)
+
+    # Track linear model for plotting!
+    mu = pm.Deterministic("mu", alpha + pm.math.dot(X, beta))
+
+    y_obs = pm.Normal("y_obs", mu=mu, sigma=sigma, observed=y)
+
+# Now mu is saved in trace for analysis
+trace.posterior["mu"]  # Access posterior of mu
+```
+
+### Common Uses
+```python
+# Track derived quantities
+I2 = pm.Deterministic("I2", tau**2 / (tau**2 + se_mean**2))
+
+# Track transformed parameters
+theta = pm.Deterministic("theta", mu + tau * theta_raw)
+
+# Track predictions at specific points
+mu_pred = pm.Deterministic("mu_pred", alpha + beta * x_new)
+```
+
+## Data Extraction Patterns
+
+### Extract to DataFrame
+```python
+# Full extraction
+trace_df = az.extract_dataset(trace).to_dataframe()
+
+# Access specific parameters
+post = az.extract_dataset(trace["posterior"])
+mu_samples = post["mu"]  # xarray DataArray
+
+# Convert to numpy
+alpha_values = trace.posterior["alpha"].values  # shape: (chains, draws)
+alpha_flat = alpha_values.flatten()  # All samples
+```
+
+### Posterior Summaries
+```python
+# Get means
+alpha_mean = trace.posterior["alpha"].mean().item()
+
+# Get specific quantiles
+alpha_hdi = az.hdi(trace, var_names=["alpha"], hdi_prob=0.89)
+
+# Summary statistics only
+az.summary(trace, kind="stats", round_to=2)
+```
+
+## HDI Visualization Patterns
+
+### Regression Bands
+```python
+# Compute mu at new x values
+post = az.extract_dataset(trace)
+x_seq = np.linspace(x.min(), x.max(), 100)
+
+# Method 1: Manual computation
+mu_pred = np.zeros((post.sizes["sample"], len(x_seq)))
+for i, x_val in enumerate(x_seq):
+    mu_pred[:, i] = post["alpha"] + post["beta"] * (x_val - x.mean())
+
+# Plot with HDI bands
+ax = az.plot_hdi(x_seq, mu_pred.T, hdi_prob=0.89)
+plt.scatter(x, y, alpha=0.5)
+plt.plot(x_seq, mu_pred.mean(axis=0), "k")
+```
+
+### Combined Epistemic + Aleatoric Uncertainty
+```python
+# If mu was tracked with Deterministic
+ax = az.plot_hdi(x_seq, trace.posterior["mu"], hdi_prob=0.89,
+                 color="blue", fill_kwargs={"alpha": 0.3, "label": "mu interval"})
+
+# Add prediction interval (includes sigma)
+az.plot_hdi(x_seq, post_pred.posterior_predictive["y_obs"],
+            ax=ax, hdi_prob=0.89,
+            color="gray", fill_kwargs={"alpha": 0.2, "label": "prediction interval"})
+
+plt.scatter(x, y)
+plt.legend()
+```
+
 ## Sampling Options
 
 ```python

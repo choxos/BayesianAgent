@@ -217,6 +217,14 @@ Provide reviews in this structured format:
 - [ ] No identifiability issues
 - [ ] Correct parameterization (SD vs precision)
 
+### Workflow Checklist (Statistical Rethinking)
+- [ ] Prior predictive check included/mentioned
+- [ ] Non-centered parameterization for hierarchical models (if appropriate)
+- [ ] Using pm.Deterministic to track mu (PyMC)
+- [ ] log_lik computed for model comparison (Stan)
+- [ ] y_rep included for posterior predictive checks
+- [ ] WAIC/LOO comparison if multiple models
+
 ### Efficiency Checklist
 - [ ] Vectorization used where possible
 - [ ] No redundant calculations

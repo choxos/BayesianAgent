@@ -100,13 +100,92 @@ prior_pred = pm.sample_prior_predictive(500)
 post_pred = pm.sample_posterior_predictive(trace)
 ```
 
+## Bayesian Workflow (Statistical Rethinking)
+
+### 1. Prior Predictive Check
+```python
+with model:
+    prior_pred = pm.sample_prior_predictive(500, random_seed=42)
+az.plot_ppc(prior_pred, group="prior")
+```
+
+### 2. Fit Model
+```python
+with model:
+    trace = pm.sample(1000, tune=1000, target_accept=0.9,
+                      return_inferencedata=True)
+```
+
+### 3. Diagnostics
+```python
+az.summary(trace, hdi_prob=0.89)
+az.plot_trace(trace)
+az.plot_rank_hist(trace)  # Ranked histograms (preferred)
+```
+
+### 4. Posterior Predictive Check
+```python
+with model:
+    post_pred = pm.sample_posterior_predictive(trace)
+az.plot_ppc(post_pred, num_pp_samples=100)
+```
+
+### 5. Model Comparison
+```python
+loo1 = az.loo(trace1)
+loo2 = az.loo(trace2)
+az.compare({"m1": trace1, "m2": trace2})
+az.plot_khat(loo1)  # k > 0.7 is problematic
+```
+
+## pm.Deterministic for Tracking
+
+**Always track mu for plotting:**
+
+```python
+# Inside model
+mu = pm.Deterministic("mu", alpha + pm.math.dot(X, beta))
+
+# Access later
+trace.posterior["mu"]  # All samples of mu
+```
+
+## Data Extraction Patterns
+
+```python
+# Extract to DataFrame
+trace_df = az.extract_dataset(trace).to_dataframe()
+
+# Access specific parameters
+post = az.extract_dataset(trace["posterior"])
+mu_samples = post["mu"].values
+
+# Get numpy arrays
+alpha_values = trace.posterior["alpha"].values  # (chains, draws)
+```
+
+## HDI Visualization
+
+```python
+# Compute mu at new x values
+x_seq = np.linspace(x.min(), x.max(), 100)
+mu_pred = post["alpha"] + post["beta"] * x_seq[:, None]
+
+# Plot HDI bands
+az.plot_hdi(x_seq, mu_pred.T, hdi_prob=0.89)
+plt.scatter(x, y)
+```
+
 ## ArviZ Diagnostics
 
 ```python
 import arviz as az
 
+# Configure defaults
+az.rcParams["stats.hdi_prob"] = 0.89
+
 # Summary table
-summary = az.summary(trace, hdi_prob=0.9)
+summary = az.summary(trace, hdi_prob=0.89)
 
 # Key metrics
 max_rhat = summary["r_hat"].max()       # Should be < 1.01
@@ -114,6 +193,7 @@ min_ess = summary["ess_bulk"].min()     # Should be > 400
 
 # Plots
 az.plot_trace(trace)                    # Trace plots
+az.plot_rank_hist(trace)                # Ranked histograms (preferred!)
 az.plot_posterior(trace)                # Posteriors
 az.plot_forest(trace)                   # Forest plot
 az.plot_pair(trace)                     # Pairs plot
@@ -123,6 +203,15 @@ az.loo(trace)                           # LOO-CV
 az.waic(trace)                          # WAIC
 az.compare({"m1": trace1, "m2": trace2})
 ```
+
+## Diagnostic Checklist
+
+- [ ] Rhat < 1.01 for all parameters
+- [ ] ESS_bulk > 400
+- [ ] ESS_tail > 400
+- [ ] Prior predictive produces sensible values
+- [ ] Posterior predictive matches data pattern
+- [ ] Pareto k < 0.7 for LOO
 
 ## Non-Centered Parameterization
 
