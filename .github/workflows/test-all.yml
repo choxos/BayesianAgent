@@ -1,0 +1,78 @@
+name: All Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Run weekly on Sundays at midnight
+    - cron: '0 0 * * 0'
+  workflow_dispatch:
+
+jobs:
+  lint-models:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: '4.3'
+
+      - name: Install cmdstanr
+        run: |
+          install.packages("cmdstanr", repos = c("https://stan-dev.r-universe.dev", getOption("repos")))
+        shell: Rscript {0}
+
+      - name: Install CmdStan
+        run: |
+          cmdstanr::check_cmdstan_toolchain(fix = TRUE, quiet = TRUE)
+          cmdstanr::install_cmdstan(cores = 2, quiet = TRUE)
+        shell: Rscript {0}
+
+      - name: Check Stan model syntax
+        run: |
+          library(cmdstanr)
+          stan_files <- list.files("tests/models/stan", pattern = "\\.stan$", full.names = TRUE)
+          errors <- character()
+          for (f in stan_files) {
+            cat("Checking:", f, "\n")
+            tryCatch({
+              mod <- cmdstan_model(f, compile = FALSE)
+              mod$check_syntax()
+              cat("  OK\n")
+            }, error = function(e) {
+              errors <<- c(errors, paste(f, ":", e$message))
+              cat("  ERROR:", e$message, "\n")
+            })
+          }
+          if (length(errors) > 0) {
+            stop("Stan syntax errors found:\n", paste(errors, collapse = "\n"))
+          }
+        shell: Rscript {0}
+
+  test-stan:
+    needs: lint-models
+    uses: ./.github/workflows/test-stan.yml
+
+  test-jags:
+    uses: ./.github/workflows/test-jags.yml
+
+  summary:
+    needs: [test-stan, test-jags]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Check test results
+        run: |
+          echo "Stan tests: ${{ needs.test-stan.result }}"
+          echo "JAGS tests: ${{ needs.test-jags.result }}"
+
+          if [[ "${{ needs.test-stan.result }}" == "failure" ]] || [[ "${{ needs.test-jags.result }}" == "failure" ]]; then
+            echo "Some tests failed!"
+            exit 1
+          fi
+          echo "All tests passed!"

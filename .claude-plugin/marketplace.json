@@ -1,0 +1,50 @@
+{
+  "name": "bayesian-modeling-agent",
+  "owner": {
+    "name": "Ahmad Sofi-Mahmudi",
+    "email": "choxos@users.noreply.github.com",
+    "url": "https://github.com/choxos"
+  },
+  "metadata": {
+    "description": "Claude agent ecosystem for creating and reviewing Bayesian model specification files supporting Stan (cmdstanr), JAGS (R2jags), and WinBUGS (R2WinBUGS)",
+    "version": "1.0.0",
+    "license": "MIT"
+  },
+  "plugins": [
+    {
+      "name": "bayesian-modeling",
+      "source": "./plugins/bayesian-modeling",
+      "description": "Create, review, and validate Bayesian models in Stan, JAGS, and WinBUGS",
+      "version": "1.0.0",
+      "category": "statistics",
+      "strict": false,
+      "agents": [
+        "./agents/model-architect.md",
+        "./agents/stan-specialist.md",
+        "./agents/bugs-specialist.md",
+        "./agents/model-reviewer.md",
+        "./agents/test-runner.md"
+      ],
+      "commands": [
+        "./commands/create-model.md",
+        "./commands/review-model.md",
+        "./commands/run-diagnostics.md"
+      ],
+      "keywords": [
+        "bayesian",
+        "stan",
+        "jags",
+        "winbugs",
+        "mcmc",
+        "hierarchical",
+        "regression",
+        "time-series",
+        "survival",
+        "meta-analysis",
+        "cmdstanr",
+        "r2jags",
+        "probabilistic-programming"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+model {
+  # Likelihood
+  for (i in 1:K) {
+    y[i] ~ dnorm(theta[i], prec[i])
+    prec[i] <- pow(se[i], -2)
+    theta[i] ~ dnorm(mu, tau.theta)
+  }
+
+  # Hyperpriors
+  mu ~ dnorm(0, 0.0001)
+  tau.theta <- pow(tau, -2)
+  tau ~ dunif(0, 10)
+
+  # Heterogeneity statistics
+  tau2 <- pow(tau, 2)
+}

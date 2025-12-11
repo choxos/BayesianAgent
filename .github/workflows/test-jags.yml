@@ -1,0 +1,80 @@
+name: JAGS Integration Tests
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'tests/**'
+      - 'plugins/**'
+      - '.github/workflows/test-jags.yml'
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  test-jags:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        r-version: ['4.3']
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ matrix.r-version }}
+          use-public-rspm: true
+
+      - name: Install JAGS (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jags libcurl4-openssl-dev
+
+      - name: Install JAGS (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install jags
+
+      - name: Verify JAGS installation
+        run: |
+          which jags
+          jags --version || echo "JAGS version check"
+
+      - name: Install R dependencies
+        uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: |
+            any::testthat
+            any::here
+            any::R2jags
+            any::coda
+
+      - name: Run JAGS tests
+        run: |
+          library(testthat)
+          library(here)
+          results <- test_dir(
+            here("tests/integration/jags"),
+            reporter = "summary",
+            stop_on_failure = FALSE
+          )
+          # Exit with error if any tests failed
+          if (any(as.data.frame(results)$failed > 0)) {
+            quit(status = 1)
+          }
+        shell: Rscript {0}
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jags-test-results-${{ matrix.os }}
+          path: |
+            tests/integration/jags/*.Rout
+            tests/*.log

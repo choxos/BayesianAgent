@@ -1,0 +1,73 @@
+# R
+.Rhistory
+.Rapp.history
+.RData
+.Ruserdata
+*.Rproj.user/
+
+# R package files
+*.tar.gz
+*.Rcheck/
+
+# Stan
+*.exe
+*.o
+*.hpp
+*.d
+
+# CmdStan output
+output*.csv
+*.stan.hpp
+
+# JAGS/WinBUGS
+*.coda
+*.bug
+CODAchain*.txt
+CODAindex.txt
+
+# Test outputs
+tests/*.Rout
+tests/**/*.Rout
+tests/*.log
+tests/**/*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+tmp/
+temp/
+
+# Reference files (large documentation)
+refs/
+
+# Claude Code
+.claude/
+
+# Environment
+.env
+.env.local
+
+# Logs
+logs/
+*.log
+
+# Coverage
+coverage/
+.coverage
+htmlcov/
+
+# Build
+build/
+dist/
+*.egg-info/
