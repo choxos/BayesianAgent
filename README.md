@@ -1,87 +1,67 @@
 # BayesianAgent
 
-A Claude Code agent ecosystem for creating, reviewing, and validating Bayesian statistical models in Stan, JAGS, and WinBUGS.
+> **Bayesian Modeling Agent Ecosystem** — Create, review, and validate Stan, JAGS, and WinBUGS models with AI assistance
 
-[![Stan Tests](https://github.com/choxos/BayesianAgent/actions/workflows/test-stan.yml/badge.svg)](https://github.com/choxos/BayesianAgent/actions/workflows/test-stan.yml)
-[![JAGS Tests](https://github.com/choxos/BayesianAgent/actions/workflows/test-jags.yml/badge.svg)](https://github.com/choxos/BayesianAgent/actions/workflows/test-jags.yml)
+A comprehensive [Claude Code](https://docs.claude.com/en/docs/claude-code/overview) plugin providing **5 specialized agents**, **8 knowledge skills**, and **3 workflow commands** for Bayesian statistical modeling.
 
-## Features
+## Overview
 
-- **Multi-language support**: Stan 2.37 (default), JAGS, and WinBUGS
-- **Model creation**: Generate complete, runnable Bayesian models from natural language descriptions
-- **Model review**: Analyze existing models for correctness, efficiency, and best practices
-- **Automatic testing**: Run models with synthetic data to validate convergence
-- **R integration**: Complete code for cmdstanr, R2jags, and R2WinBUGS
+This plugin helps you create and review Bayesian models across three languages:
 
-## Supported Model Types
+- **Stan 2.37** (default) — Modern HMC/NUTS sampling with cmdstanr
+- **JAGS** — Cross-platform Gibbs sampling with R2jags
+- **WinBUGS** — Classic BUGS implementation with R2WinBUGS
 
-| Model Type | Stan | JAGS | WinBUGS |
-|------------|:----:|:----:|:-------:|
-| Linear regression | ✓ | ✓ | ✓ |
-| Logistic regression | ✓ | ✓ | ✓ |
-| Hierarchical/Multilevel | ✓ | ✓ | ✓ |
-| Time series (AR, ARMA) | ✓ | ✓ | ✓ |
-| Survival analysis | ✓ | ✓ | ✓ |
-| Meta-analysis | ✓ | ✓ | ✓ |
+### Key Features
 
-## Installation
+- **Model Creation** — Generate complete, runnable models from natural language descriptions
+- **Model Review** — Analyze existing models for correctness, efficiency, and best practices
+- **Automatic Testing** — Run models with synthetic data to validate convergence
+- **R Integration** — Complete code for cmdstanr, R2jags, and R2WinBUGS
+- **All Experience Levels** — Adjustable verbosity from beginner (extensive comments) to advanced (minimal)
 
-### As a Claude Code Plugin
+## Quick Start
+
+### Step 1: Add the Marketplace
+
+Add this plugin marketplace to Claude Code:
 
 ```bash
-# Clone the repository
-git clone https://github.com/choxos/BayesianAgent.git
-
-# Install as Claude Code plugin
-claude plugins install ./BayesianAgent
+/plugin marketplace add choxos/BayesianAgent
 ```
 
-### Prerequisites for Testing
+### Step 2: Install the Plugin
 
-To run the integration tests, you need:
-
-**For Stan models:**
-```r
-# Install cmdstanr
-install.packages("cmdstanr", repos = c("https://stan-dev.r-universe.dev", getOption("repos")))
-
-# Install CmdStan
-library(cmdstanr)
-check_cmdstan_toolchain()
-install_cmdstan()
-```
-
-**For JAGS models:**
 ```bash
-# macOS
-brew install jags
-
-# Ubuntu/Debian
-sudo apt-get install jags
-
-# Then in R:
-install.packages("R2jags")
+/plugin install bayesian-modeling
 ```
+
+This loads the Bayesian modeling agents, commands, and skills into Claude's context.
 
 ## Usage
 
-### Creating a Model
+### Creating Models
 
-Use the `/create-model` command or describe your model:
+Use the `/create-model` command or describe what you need:
 
 ```
-I need a hierarchical model for student test scores nested within schools.
-The outcome is continuous, and I want to include student-level predictors
-(age, socioeconomic status) and a school-level predictor (funding level).
-Use Stan.
+I need a hierarchical model for patient outcomes nested within hospitals.
+The outcome is continuous, with patient-level predictors (age, treatment)
+and a hospital-level predictor (size). Use Stan.
 ```
 
-### Reviewing a Model
+The agent will:
+1. Ask clarifying questions about your data and preferences
+2. Generate complete Stan/JAGS code with appropriate priors
+3. Provide R code for data preparation and model fitting
+4. Include posterior predictive checks
+
+### Reviewing Models
 
 Use the `/review-model` command or paste your model:
 
 ```
-Can you review this Stan model for errors?
+Review this Stan model:
 
 data {
   int<lower=0> N;
@@ -96,89 +76,92 @@ model {
 }
 ```
 
+The reviewer checks:
+- Syntax correctness
+- Prior completeness
+- Parameterization efficiency
+- Common errors (SD vs precision, missing constraints)
+
 ### Running Diagnostics
 
-Use the `/run-diagnostics` command to test a model:
+Use the `/run-diagnostics` command:
 
 ```
-Run diagnostics on my hierarchical model with synthetic data
+Test my hierarchical model with synthetic data and report convergence
 ```
 
-## Project Structure
+Reports include Rhat, ESS, divergences, and parameter recovery.
+
+## Supported Model Types
+
+| Model Type | Stan | JAGS | WinBUGS |
+|------------|:----:|:----:|:-------:|
+| Linear regression | ✓ | ✓ | ✓ |
+| Logistic regression | ✓ | ✓ | ✓ |
+| Hierarchical/Multilevel | ✓ | ✓ | ✓ |
+| Time series (AR, ARMA) | ✓ | ✓ | ✓ |
+| Survival analysis | ✓ | ✓ | ✓ |
+| Meta-analysis | ✓ | ✓ | ✓ |
+
+## Components
+
+### Agents (5)
+
+| Agent | Model | Purpose |
+|-------|-------|---------|
+| `model-architect` | Haiku | Routes requests to specialists |
+| `stan-specialist` | Sonnet | Stan 2.37 expert with cmdstanr |
+| `bugs-specialist` | Sonnet | BUGS/JAGS expert with precision parameterization |
+| `model-reviewer` | Sonnet | Reviews models for correctness & efficiency |
+| `test-runner` | Haiku | Executes models with synthetic data |
+
+### Skills (8)
+
+- **Language Skills**: `stan-fundamentals`, `bugs-fundamentals`
+- **Model Skills**: `hierarchical-models`, `regression-models`, `time-series-models`, `survival-models`, `meta-analysis`
+- **Diagnostics**: `model-diagnostics`
+
+### Commands (3)
+
+- `/create-model` — Interactive model creation workflow
+- `/review-model` — Review existing models
+- `/run-diagnostics` — Test model execution
+
+## Critical: Parameterization Differences
+
+**The most common source of errors when working across languages:**
+
+| Distribution | Stan | JAGS/WinBUGS |
+|-------------|------|--------------|
+| Normal | `normal(mu, sigma)` — SD | `dnorm(mu, tau)` — precision (τ = 1/σ²) |
+| Multivariate Normal | `multi_normal(mu, Sigma)` — covariance | `dmnorm(mu, Omega)` — precision matrix |
+
+The agents automatically handle these differences when creating or converting models.
+
+## Repository Structure
 
 ```
 BayesianAgent/
 ├── .claude-plugin/
 │   └── marketplace.json          # Plugin configuration
 ├── plugins/bayesian-modeling/
-│   ├── agents/
-│   │   ├── model-architect.md    # Orchestration agent
-│   │   ├── stan-specialist.md    # Stan expert
-│   │   ├── bugs-specialist.md    # BUGS/JAGS expert
-│   │   ├── model-reviewer.md     # Review agent
-│   │   └── test-runner.md        # Test execution agent
-│   ├── commands/
-│   │   ├── create-model.md       # Model creation workflow
-│   │   ├── review-model.md       # Review workflow
-│   │   └── run-diagnostics.md    # Diagnostics workflow
-│   └── skills/
-│       ├── stan-fundamentals/    # Stan syntax & patterns
-│       ├── bugs-fundamentals/    # BUGS syntax & patterns
-│       ├── hierarchical-models/  # Hierarchical model patterns
-│       ├── regression-models/    # Regression patterns
-│       ├── time-series-models/   # Time series patterns
-│       ├── survival-models/      # Survival analysis patterns
-│       ├── meta-analysis/        # Meta-analysis patterns
-│       └── model-diagnostics/    # MCMC diagnostics
+│   ├── agents/                   # 5 specialized agents
+│   ├── commands/                 # 3 workflow commands
+│   └── skills/                   # 8 knowledge skills
 ├── tests/
-│   ├── conftest.R                # Test configuration
-│   ├── run_tests.R               # Test runner script
-│   ├── models/                   # Test model files
-│   └── integration/              # Integration tests
+│   ├── models/                   # Stan and JAGS test models
+│   └── integration/              # R integration tests
 └── .github/workflows/            # CI/CD pipelines
 ```
 
-## Key Technical Notes
+## Running Tests Locally
 
-### Parameterization Differences
-
-**This is the most common source of errors when working across languages:**
-
-| Distribution | Stan | JAGS/WinBUGS |
-|-------------|------|--------------|
-| Normal | `normal(mu, sigma)` - SD | `dnorm(mu, tau)` - precision (tau = 1/sigma²) |
-| Multivariate Normal | `multi_normal(mu, Sigma)` - covariance | `dmnorm(mu, Omega)` - precision matrix |
-
-### Stan 2.37 Array Syntax
-
-Use the modern array syntax:
-```stan
-// Correct (Stan 2.37)
-array[N] real x;
-array[J] vector[K] theta;
-
-// Deprecated
-real x[N];
-```
-
-### Non-Centered Parameterization
-
-For hierarchical models with weak data:
-```stan
-parameters {
-  vector[J] theta_raw;  // Standard normal
-}
-transformed parameters {
-  vector[J] theta = mu + tau * theta_raw;
-}
-model {
-  theta_raw ~ std_normal();
-}
-```
-
-## Running Tests
+If you want to verify the models work:
 
 ```bash
+# Install R dependencies
+Rscript -e "install.packages(c('testthat', 'here', 'cmdstanr', 'R2jags'))"
+
 # Run all tests
 Rscript tests/run_tests.R
 
@@ -189,30 +172,12 @@ Rscript tests/run_tests.R stan
 Rscript tests/run_tests.R jags
 ```
 
-## Convergence Criteria
-
-Tests verify:
-- **Rhat < 1.1** for all parameters
-- **ESS > 100** for all parameters
-- **No divergent transitions** (Stan)
-- **Parameter recovery** within 90% credible interval
-
-## Contributing
-
-Contributions are welcome! Please:
-
-1. Fork the repository
-2. Create a feature branch
-3. Add tests for new functionality
-4. Ensure all tests pass
-5. Submit a pull request
-
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
+MIT License — see [LICENSE](LICENSE) for details.
 
 ## Acknowledgments
 
 - [Stan Development Team](https://mc-stan.org/) for Stan 2.37
 - [JAGS](https://mcmc-jags.sourceforge.io/) for JAGS
-- [WinBUGS](https://www.mrc-bsu.cam.ac.uk/software/bugs/) for WinBUGS
+- [Anthropic](https://www.anthropic.com/) for Claude Code
